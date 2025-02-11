@@ -1,7 +1,23 @@
-# Cree una Base de datos de manera local con Xampp e MYSQL
-# CREATE DATABASE dbmyapp
-# USE dbmyapp
-# Se creo una tabla Users y Products con ID autoincrementable.
-# Users con los campos de usuario (username) y contraseña (password)
-# Products con los campos nombre (name), categoria (category), precio (price),
-# cantidad (stock), y estado (state)
+/*Cree una Base de datos de manera local con Xampp e MYSQL
+CREATE DATABASE dbmyapp
+USE dbmyapp
+Se creo una tabla Users y Products con ID autoincrementable.
+Users con los campos de usuario (username) y contraseña (password)
+Products con los campos nombre (name), categoria (category), precio (price), cantidad (stock), y estado (state)
+
+CREATE TABLE users (
+     id INT AUTO_INCREMENT PRIMARY KEY,
+     username VARCHAR(255) NOT NULL UNIQUE,
+     password VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    category VARCHAR(255) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    stock INT NOT NULL,
+    state ENUM('A', 'I') DEFAULT 'A'  -- 'A' para activo, 'I' para inactivo
+);
+
+*/
