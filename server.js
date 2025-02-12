@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql2');
+const { Pool } = require('pg'); // Importar el cliente de PostgreSQL
 const cors = require('cors');
 const path = require('path');
 
@@ -11,19 +11,8 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Database connection
-const connection = mysql.createConnection({
-    host: '127.0.0.1',
-    user: 'root',
-    password: 'admin',
-    database: 'dbmyapp'
-});
-
-connection.connect((err) => {
-    if (err) {
-        console.error('Error connecting to database:', err);
-        return;
-    }
-    console.log('Successfully connected to database');
+const pool = new Pool({
+    connectionString: 'postgresql://neondb_owner:npg_rom7qCOTAev2@ep-spring-pond-a8sf4mo2-pooler.eastus2.azure.neon.tech/neondb?sslmode=require'
 });
 
 // Serve static files
@@ -37,106 +26,105 @@ app.get('/register', (req, res) => {
 });
 
 // Login endpoint
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     
     if (!username || !password) {
         return res.status(400).json({ error: 'Username and password are required' });
     }
 
-    const query = 'SELECT * FROM users WHERE username = ? AND password = ?';
+    const query = 'SELECT * FROM users WHERE username = $1 AND password = $2';
     
-    connection.query(query, [username, password], (err, results) => {
-        if (err) {
-            console.error('Database error:', err);
-            return res.status(500).json({ error: 'Server error' });
-        }
-
-        if (results.length > 0) {
+    try {
+        const { rows } = await pool.query(query, [username, password]);
+        if (rows.length > 0) {
             res.json({ 
                 success: true, 
                 user: {
-                    id: results[0].id,
-                    username: results[0].username
+                    id: rows[0].id,
+                    username: rows[0].username
                 }
             });
         } else {
             res.status(401).json({ error: 'Invalid credentials' });
         }
-    });
+    } catch (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'Server error' });
+    }
 });
 
 // Username endpoint
-app.post('/api/user', (req, res) => {
+app.post('/api/user', async (req, res) => {
     const { username, password } = req.body;
-    const query = 'INSERT INTO users (username, password) VALUES (?, ?)';
+    const query = 'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id';
     
-    connection.query(query, [username, password], (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error creating users' });
-        }
-        res.json({ id: result.insertId });
-    });
+    try {
+        const { rows } = await pool.query(query, [username, password]);
+        res.json({ id: rows[0].id });
+    } catch (err) {
+        return res.status(500).json({ error: 'Error creating users' });
+    }
 });
 
 // Products endpoints
-app.get('/api/products', (req, res) => {
-    const query = 'SELECT * FROM products WHERE state = "A"';
-    connection.query(query, (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error fetching products' });
-        }
-        res.json(results);
-    });
+app.get('/api/products', async (req, res) => {
+    const query = 'SELECT * FROM products WHERE state = $1';
+    try {
+        const { rows } = await pool.query(query, ['A']);
+        res.json(rows);
+    } catch (err) {
+        return res.status(500).json({ error: 'Error fetching products' });
+    }
 });
 
-app.post('/api/products', (req, res) => {
+app.post('/api/products', async (req, res) => {
     const { name, category, price, stock } = req.body;
-    const query = 'INSERT INTO products (name, category, price, stock, state) VALUES (?, ?, ?, ?, "A")';
+    const query = 'INSERT INTO products (name, category, price, stock, state) VALUES ($1, $2, $3, $4, $5) RETURNING id';
     
-    connection.query(query, [name, category, price, stock], (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error creating product' });
-        }
-        res.json({ id: result.insertId });
-    });
+    try {
+        const { rows } = await pool.query(query, [name, category, price, stock, 'A']);
+        res.json({ id: rows[0].id });
+    } catch (err) {
+        return res.status(500).json({ error: 'Error creating product' });
+    }
 });
 
-app.put('/api/products/:id', (req, res) => {
+app.put('/api/products/:id', async (req, res) => {
     const { name, category, price, stock } = req.body;
-    const query = 'UPDATE products SET name = ?, category = ?, price = ?, stock = ? WHERE id = ?';
+    const query = 'UPDATE products SET name = $1, category = $2, price = $3, stock = $4 WHERE id = $5';
     
-    connection.query(query, [name, category, price, stock, req.params.id], (err) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error updating product' });
-        }
+    try {
+        await pool.query(query, [name, category, price, stock, req.params.id]);
         res.json({ success: true });
-    });
+    } catch (err) {
+        return res.status(500).json({ error: 'Error updating product' });
+    }
 });
 
-app.get('/api/products/:id', (req, res) => {
-    const query = 'SELECT * FROM products WHERE id = ? AND state = "A"';
+app.get('/api/products/:id', async (req, res) => {
+    const query = 'SELECT * FROM products WHERE id = $1 AND state = $2';
     
-    connection.query(query, [req.params.id], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error al obtener el producto' });
-        }
-        if (results.length === 0) {
+    try {
+        const { rows } = await pool.query(query, [req.params.id, 'A']);
+        if (rows.length === 0) {
             return res.status(404).json({ error: 'Producto no encontrado' });
         }
-        res.json(results[0]);
-    });
+        res.json(rows[0]);
+    } catch (err) {
+        return res.status(500).json({ error: 'Error al obtener el producto' });
+    }
 });
 
-app.delete('/api/products/:id', (req, res) => {
-    const query = 'UPDATE products SET state = "I" WHERE id = ?';
+app.delete('/api/products/:id', async (req, res) => {
+    const query = 'UPDATE products SET state = $1 WHERE id = $2';
     
-    connection.query(query, [req.params.id], (err) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error deleting product' });
-        }
+    try {
+        await pool.query(query, ['I', req.params.id]);
         res.json({ success: true });
-    });
+    } catch (err) {
+        return res.status(500).json({ error: 'Error deleting product' });
+    }
 });
 
 const PORT = 3000;
