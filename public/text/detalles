@@ -1,6 +1,6 @@
-/*Cree una Base de datos de manera local con Xampp e MYSQL
-CREATE DATABASE dbmyapp
-USE dbmyapp
+/*
+Cree una Base de datos de manera de forma en nube con postgresql
+
 Se creo una tabla Users y Products con ID autoincrementable.
 Users con los campos de usuario (username) y contraseña (password)
 Products con los campos nombre (name), categoria (category), precio (price), cantidad (stock), y estado (state)
